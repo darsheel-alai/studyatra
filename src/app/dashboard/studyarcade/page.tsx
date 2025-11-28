@@ -357,7 +357,7 @@ function DiagramLabelChallenge({ classValue, board, subject, onBack }: GameProps
 }
 
 // 3. Quick 5
-function Quick5({ classValue, board, subject, onBack }: GameProps) {
+function Quick5({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
   const [currentQ, setCurrentQ] = useState(0);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
@@ -425,7 +425,7 @@ function Quick5({ classValue, board, subject, onBack }: GameProps) {
 }
 
 // 4. Match Pairs
-function MatchPairs({ classValue, board, subject, onBack }: GameProps) {
+function MatchPairs({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
   const [cards, setCards] = useState<Array<{id: string; content: string; type: 'term' | 'def'; pairId: number; flipped: boolean; matched: boolean}>>([]);
   const [flipped, setFlipped] = useState<string[]>([]);
   const [moves, setMoves] = useState(0);
@@ -507,7 +507,7 @@ function MatchPairs({ classValue, board, subject, onBack }: GameProps) {
 }
 
 // 5. Word Sprint
-function WordSprint({ classValue, board, subject, onBack }: GameProps) {
+function WordSprint({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
   const [word, setWord] = useState("");
   const [synonym, setSynonym] = useState("");
   const [options, setOptions] = useState<string[]>([]);
@@ -621,7 +621,7 @@ function ReactionPuzzle({ classValue, board, subject, onBack }: GameProps) {
 }
 
 // 7. MCQ Speed Run
-function MCQSpeedRun({ classValue, board, subject, onBack }: GameProps) {
+function MCQSpeedRun({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
   const [currentQ, setCurrentQ] = useState(0);
@@ -779,7 +779,7 @@ function EquationBuilder({ classValue, board, subject, onBack }: GameProps) {
 }
 
 // 9. Concept Blocks
-function ConceptBlocks({ classValue, board, subject, onBack }: GameProps) {
+function ConceptBlocks({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
   const [blocks, setBlocks] = useState<Array<{id: number; concept: string; y: number; x: number; category: string}>>([]);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
@@ -940,7 +940,7 @@ function ConceptBlocks({ classValue, board, subject, onBack }: GameProps) {
 }
 
 // 10. Spelling Ninja
-function SpellingNinja({ classValue, board, subject, onBack }: GameProps) {
+function SpellingNinja({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
   const [word, setWord] = useState("");
   const [displayed, setDisplayed] = useState("");
   const [wrongLetters, setWrongLetters] = useState<string[]>([]);
@@ -1011,7 +1011,7 @@ function SpellingNinja({ classValue, board, subject, onBack }: GameProps) {
 }
 
 // 11. Map Race
-function MapRace({ classValue, board, subject, onBack }: GameProps) {
+function MapRace({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
   const [targets, setTargets] = useState<Array<{id: number; name: string; x: number; y: number; clicked: boolean}>>([]);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
@@ -1181,7 +1181,7 @@ function OddOneOut({ classValue, board, subject, onBack }: GameProps) {
 }
 
 // 14. Math Sprint
-function MathSprint({ classValue, board, subject, onBack }: GameProps) {
+function MathSprint({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
   const [num1, setNum1] = useState(0);
   const [num2, setNum2] = useState(0);
   const [answer, setAnswer] = useState("");

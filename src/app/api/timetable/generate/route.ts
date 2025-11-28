@@ -37,12 +37,32 @@ export async function POST(request: NextRequest) {
 
     // Get syllabus information
     const syllabus = getSyllabusTopics(studentClass, board);
+    const normalizedSubjectMap: Record<string, string> = {
+      mathematics: "math",
+      maths: "math",
+      math: "math",
+      science: "science",
+      physics: "physics",
+      chemistry: "chemistry",
+      biology: "biology",
+    };
     let syllabusInfo = "";
-    subjects.forEach((subject: string) => {
-      if (syllabus[subject]) {
-        syllabusInfo += `\n${subject}: ${syllabus[subject].join(", ")}`;
-      }
-    });
+    if (syllabus) {
+      subjects.forEach((subject: string) => {
+        const normalizedSubject = subject
+          ?.trim()
+          .toLowerCase()
+          .replace(/\s+/g, "");
+        const subjectKey =
+          normalizedSubject && normalizedSubjectMap[normalizedSubject];
+        if (!subjectKey) return;
+
+        const subjectTopics = (syllabus as Record<string, unknown>)[subjectKey];
+        if (Array.isArray(subjectTopics) && subjectTopics.length) {
+          syllabusInfo += `\n${subject}: ${subjectTopics.join(", ")}`;
+        }
+      });
+    }
 
     const preferencesText = preferences
       ? `\n\nStudent Preferences:\n${JSON.stringify(preferences, null, 2)}`
