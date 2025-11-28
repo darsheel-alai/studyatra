@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SignUp } from "@clerk/nextjs";
+import { dark } from "@clerk/themes";
 
 export default function SignupPage() {
   return (
@@ -28,7 +29,7 @@ export default function SignupPage() {
         <div className="flex justify-center">
           <SignUp
             appearance={{
-              baseTheme: "dark",
+              baseTheme: dark,
               variables: {
                 colorBackground: "#1e293b",
                 colorInputBackground: "#0f172a",

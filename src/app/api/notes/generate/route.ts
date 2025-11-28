@@ -37,9 +37,24 @@ export async function POST(request: NextRequest) {
 
     // Get syllabus information
     const syllabus = getSyllabusTopics(studentClass, board);
+    const normalizedSubjectMap: Record<string, string> = {
+      mathematics: "math",
+      maths: "math",
+      math: "math",
+      science: "science",
+      physics: "physics",
+      chemistry: "chemistry",
+      biology: "biology",
+    };
+    const normalizedSubject =
+      subject?.trim().toLowerCase().replace(/\s+/g, "") ?? "";
+    const subjectKey = normalizedSubjectMap[normalizedSubject];
     let syllabusInfo = "";
-    if (subject && syllabus[subject]) {
-      syllabusInfo = `\n\nRelevant syllabus topics for ${subject}:\n${syllabus[subject].join("\n")}`;
+    if (subjectKey && syllabus) {
+      const subjectTopics = (syllabus as Record<string, unknown>)[subjectKey];
+      if (Array.isArray(subjectTopics)) {
+        syllabusInfo = `\n\nRelevant syllabus topics for ${subject}:\n${subjectTopics.join("\n")}`;
+      }
     }
 
     const prompt = `You are an expert educational content creator. Create comprehensive, well-structured study notes for a ${studentClass}th grade student studying ${board} board curriculum.

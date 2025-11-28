@@ -43,30 +43,24 @@ export default function TestsPage() {
     const boardSyllabus = classSyllabus[selectedBoard as keyof typeof classSyllabus];
     if (!boardSyllabus || typeof boardSyllabus !== 'object') return [];
     
-    const subjectLower = selectedSubject.toLowerCase();
-    // Try different key formats
-    if (boardSyllabus.math && (subjectLower.includes('math') || subjectLower.includes('mathematics'))) {
-      return (boardSyllabus as any).math || [];
+    const normalizedSubjectMap: Record<string, string> = {
+      mathematics: "math",
+      maths: "math",
+      math: "math",
+      science: "science",
+      physics: "physics",
+      chemistry: "chemistry",
+      biology: "biology",
+    };
+    const subjectKey = selectedSubject.trim().toLowerCase().replace(/\s+/g, "");
+    const normalizedKey = normalizedSubjectMap[subjectKey] || subjectKey;
+
+    if (
+      normalizedKey in boardSyllabus &&
+      Array.isArray((boardSyllabus as Record<string, unknown>)[normalizedKey])
+    ) {
+      return (boardSyllabus as Record<string, string[]>)[normalizedKey] || [];
     }
-    if (boardSyllabus.science && subjectLower.includes('science')) {
-      return (boardSyllabus as any).science || [];
-    }
-    if (boardSyllabus.physics && subjectLower.includes('physics')) {
-      return (boardSyllabus as any).physics || [];
-    }
-    if (boardSyllabus.chemistry && subjectLower.includes('chemistry')) {
-      return (boardSyllabus as any).chemistry || [];
-    }
-    if (boardSyllabus.biology && subjectLower.includes('biology')) {
-      return (boardSyllabus as any).biology || [];
-    }
-    
-    // Try direct key match
-    const subjectKey = selectedSubject.toLowerCase().replace(/\s+/g, '');
-    if (subjectKey in boardSyllabus && Array.isArray((boardSyllabus as any)[subjectKey])) {
-      return (boardSyllabus as any)[subjectKey] || [];
-    }
-    
     return [];
   };
 
@@ -369,7 +363,7 @@ export default function TestsPage() {
                   className="w-full rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-2.5 text-sm text-slate-100"
                 >
                   <option value="">Select Subject</option>
-                  {getSubjects().map((subject) => (
+                  {getSubjects().map((subject: string) => (
                     <option key={subject} value={subject}>
                       {subject}
                     </option>
