@@ -168,6 +168,24 @@ export async function initDatabase() {
       ON user_stats(total_xp DESC)
     `);
 
+    // Create onboarding table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS onboarding (
+        user_id VARCHAR(255) PRIMARY KEY,
+        order_id VARCHAR(255),
+        invoice_verified BOOLEAN DEFAULT FALSE,
+        access_key_verified BOOLEAN DEFAULT FALSE,
+        onboarding_completed BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_onboarding_user 
+      ON onboarding(user_id)
+    `);
+
     console.log("Database tables initialized successfully");
   } catch (error) {
     console.error("Error initializing database:", error);

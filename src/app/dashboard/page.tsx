@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { UserButton } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import Sidebar from "./components/Sidebar";
 import ChatHistorySidebar, { ChatSession } from "./components/ChatHistorySidebar";
 import ReactMarkdown from "react-markdown";
@@ -18,6 +19,7 @@ type Message = {
 
 export default function DashboardPage() {
   const { user, isLoaded } = useUser();
+  const router = useRouter();
   const [selectedClass, setSelectedClass] = useState("10");
   const [selectedBoard, setSelectedBoard] = useState("NCERT");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,6 +37,27 @@ export default function DashboardPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Check onboarding status on mount
+  useEffect(() => {
+    if (isLoaded && user) {
+      checkOnboardingStatus();
+    }
+  }, [isLoaded, user]);
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const response = await fetch("/api/onboarding/status");
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.onboarding_completed) {
+          router.push("/onboarding");
+        }
+      }
+    } catch (error) {
+      console.error("Error checking onboarding status:", error);
+    }
+  };
 
   // Generate a new session ID
   const generateSessionId = () => {

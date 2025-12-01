@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## AI Game Content
+
+The StudyArcade mini-games now source fresh content from Google Gemini. Set the following environment variable before running the app:
+
+```bash
+# .env.local
+GEMINI_API_KEY=AIzaSyC1Y4S_BfH869GTxf4_-AF87bJk3UnWnXQ
+```
+
+If you want to rotate the key later, update `GEMINI_API_KEY` accordingly and restart the dev server.
