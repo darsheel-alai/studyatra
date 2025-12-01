@@ -36,13 +36,6 @@ const allGames: Game[] = [
     subjects: ["English"],
   },
   {
-    id: "reaction-puzzle",
-    name: "Science Reaction Puzzle",
-    description: "Drag reactants to form correct products",
-    icon: "🧪",
-    subjects: ["Chemistry", "Science"],
-  },
-  {
     id: "mcq-speedrun",
     name: "MCQ Speed Run",
     description: "Answer as many MCQs as possible in 1 minute",
@@ -62,13 +55,6 @@ const allGames: Game[] = [
     description: "Tetris-style game with educational blocks",
     icon: "🧩",
     subjects: ["All"],
-  },
-  {
-    id: "spelling-ninja",
-    name: "Spelling Ninja",
-    description: "Tap wrong letters as words slowly appear",
-    icon: "🔤",
-    subjects: ["English"],
   },
   {
     id: "odd-one-out",
@@ -96,57 +82,16 @@ const allGames: Game[] = [
 export default function StudyArcadePage() {
   const { user, isLoaded } = useUser();
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
-  const [stats, setStats] = useState<any>(null);
-  const [loadingStats, setLoadingStats] = useState(true);
-
-  useEffect(() => {
-    if (isLoaded && user) {
-      fetchStats();
-    }
-  }, [isLoaded, user]);
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch('/api/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
 
   const handleGameSelect = async (game: Game) => {
-    if (!stats) {
-      await fetchStats();
-      return;
-    }
-
-    if (stats.games_played_today >= 3) {
-      alert("You've reached your daily limit of 3 games! Come back tomorrow to play more.");
-      return;
-    }
-
     setSelectedGame(game);
   };
 
   const handleGameComplete = async (gameId: string) => {
-    try {
-      await fetch('/api/stats', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId }), // Only track game play, no XP
-      });
-      await fetchStats(); // Refresh stats
-    } catch (error) {
-      console.error('Failed to update stats:', error);
-    }
+    // Intentionally left blank – gaming streak and daily limits removed
   };
 
-  if (!isLoaded || loadingStats) {
+  if (!isLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950">
         <div className="text-center">
@@ -164,10 +109,13 @@ export default function StudyArcadePage() {
   const renderGame = () => {
     if (!selectedGame) return null;
 
+    const subjectHint =
+      selectedGame.subjects.find((s) => s !== "All") || "General knowledge";
+
     const props = {
       classValue: "",
       board: "",
-      subject: "",
+      subject: subjectHint,
       onBack: handleBackToSelection,
       onComplete: handleGameComplete,
       gameId: selectedGame.id,
@@ -182,16 +130,12 @@ export default function StudyArcadePage() {
         return <MatchPairs {...props} />;
       case "word-sprint":
         return <WordSprint {...props} />;
-      case "reaction-puzzle":
-        return <ReactionPuzzle {...props} />;
       case "mcq-speedrun":
         return <MCQSpeedRun {...props} />;
       case "equation-builder":
         return <EquationBuilder {...props} />;
       case "concept-blocks":
         return <ConceptBlocks {...props} />;
-      case "spelling-ninja":
-        return <SpellingNinja {...props} />;
       case "map-race":
         return <MapRace {...props} />;
       case "odd-one-out":
@@ -243,24 +187,7 @@ export default function StudyArcadePage() {
                       Select any game to start playing and learning!
                     </p>
                   </div>
-                  {stats && (
-                    <div className="flex gap-4 text-sm">
-                      <div className="bg-slate-800/50 rounded-lg px-4 py-2 border border-slate-700">
-                        <div className="text-slate-400 text-xs">Gaming Streak</div>
-                        <div className="text-orange-400 font-bold text-lg">🔥 {stats.current_streak || 0} days</div>
-                      </div>
-                      <div className="bg-slate-800/50 rounded-lg px-4 py-2 border border-slate-700">
-                        <div className="text-slate-400 text-xs">Games Today</div>
-                        <div className="text-cyan-400 font-bold text-lg">{stats.games_played_today || 0}/3</div>
-                      </div>
-                    </div>
-                  )}
                 </div>
-                {stats && stats.games_played_today >= 3 && (
-                  <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-yellow-400 text-sm">
-                    ⚠️ You've reached your daily limit of 3 games. Come back tomorrow!
-                  </div>
-                )}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -357,63 +284,125 @@ function DiagramLabelChallenge({ classValue, board, subject, onBack }: GameProps
 }
 
 // 3. Quick 5
-function Quick5({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
+type QuickQuestion = { question: string; options: string[]; correctIndex: number };
+
+function Quick5({ subject, onBack, onComplete, gameId }: GameProps) {
+  const [questions, setQuestions] = useState<QuickQuestion[]>([]);
   const [currentQ, setCurrentQ] = useState(0);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [selected, setSelected] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const questions = [
-    { q: "What is 2+2?", options: ["3", "4", "5", "6"], correct: 1 },
-    { q: "Capital of India?", options: ["Mumbai", "Delhi", "Kolkata", "Chennai"], correct: 1 },
-    { q: "H₂O is?", options: ["Water", "Oxygen", "Hydrogen", "Salt"], correct: 0 },
-    { q: "Largest planet?", options: ["Earth", "Jupiter", "Mars", "Venus"], correct: 1 },
-    { q: "Photosynthesis produces?", options: ["Oxygen", "Carbon", "Nitrogen", "Hydrogen"], correct: 0 },
-  ];
+  const fetchQuestions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch("/api/games/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameType: "quick-5",
+          subject: subject || "general knowledge",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.data?.questions) {
+        throw new Error(data?.error || "Failed to load questions");
+      }
+      setQuestions(data.data.questions);
+    } catch (err: any) {
+      setError(err.message || "Unable to load questions right now.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (timeLeft <= 0 || currentQ >= 5) return;
+    fetchQuestions();
+  }, []);
+
+  useEffect(() => {
+    if (timeLeft <= 0 || currentQ >= questions.length) return;
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
-  }, [timeLeft, currentQ]);
+  }, [timeLeft, currentQ, questions.length]);
 
   const handleAnswer = (idx: number) => {
+    if (!questions[currentQ]) return;
     setSelected(idx);
-    if (idx === questions[currentQ].correct) {
+    if (idx === questions[currentQ].correctIndex) {
       setScore(prev => prev + 1);
     }
     setTimeout(() => {
-      if (currentQ < 4) {
+      if (currentQ < questions.length - 1) {
         setCurrentQ(prev => prev + 1);
         setTimeLeft(30);
         setSelected(null);
+      } else {
+        setTimeLeft(0);
       }
-    }, 1000);
+    }, 800);
   };
 
-  if (currentQ >= 5 || timeLeft <= 0) {
+  // Only treat as "game over" if we actually have questions.
+  // This prevents immediately jumping to the score screen when
+  // the AI returns no questions or an empty array.
+  const hasQuestions = questions.length > 0;
+  const isGameOver = !loading && hasQuestions && (currentQ >= questions.length || timeLeft <= 0);
+
+  if (isGameOver) {
     if (onComplete && gameId) {
       onComplete(gameId);
     }
-    return <GameOverScreen score={score} onBack={onBack} onRestart={() => window.location.reload()} />;
+    return <GameOverScreen score={score} onBack={onBack} onRestart={fetchQuestions} />;
+  }
+
+  if (loading) {
+    return (
+      <GameContainer title="Quick 5" onBack={onBack}>
+        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#5A4FFF] border-t-transparent mb-4" />
+          Generating fresh questions...
+        </div>
+      </GameContainer>
+    );
+  }
+
+  if (error || questions.length === 0) {
+    return (
+      <GameContainer title="Quick 5" onBack={onBack}>
+        <div className="text-center text-red-400">
+          <p className="mb-4">{error || "No questions available."}</p>
+          <button
+            onClick={fetchQuestions}
+            className="rounded-full bg-[#5A4FFF] px-6 py-2 text-sm font-semibold text-white"
+          >
+            Try Again
+          </button>
+        </div>
+      </GameContainer>
+    );
   }
 
   return (
     <GameContainer title="Quick 5" onBack={onBack} score={score} timeLeft={timeLeft}>
       <div className="text-center">
-        <h2 className="text-2xl mb-6">{questions[currentQ].q}</h2>
+        <h2 className="text-2xl mb-6">{questions[currentQ]?.question}</h2>
         <div className="grid grid-cols-2 gap-4">
-          {questions[currentQ].options.map((opt, i) => (
+          {questions[currentQ]?.options.map((opt, i) => (
             <button
               key={i}
               onClick={() => handleAnswer(i)}
+              disabled={selected !== null}
               className={`p-4 rounded-xl border-2 transition-all ${
                 selected === i
-                  ? selected === questions[currentQ].correct
+                  ? selected === questions[currentQ].correctIndex
                     ? "border-green-500 bg-green-500/20"
                     : "border-red-500 bg-red-500/20"
                   : "border-slate-600 hover:border-[#5A4FFF]"
-              }`}
+              } ${selected !== null ? "opacity-80" : ""}`}
             >
               {opt}
             </button>
@@ -426,24 +415,66 @@ function Quick5({ classValue, board, subject, onBack, onComplete, gameId }: Game
 
 // 4. Match Pairs
 function MatchPairs({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
-  const [cards, setCards] = useState<Array<{id: string; content: string; type: 'term' | 'def'; pairId: number; flipped: boolean; matched: boolean}>>([]);
+  const [cards, setCards] = useState<
+    Array<{ id: string; content: string; type: "term" | "def"; pairId: number; flipped: boolean; matched: boolean }>
+  >([]);
   const [flipped, setFlipped] = useState<string[]>([]);
   const [moves, setMoves] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const pairs = [
-    { term: "Photosynthesis", def: "Process by which plants make food" },
-    { term: "Mitosis", def: "Cell division process" },
-    { term: "Gravity", def: "Force that pulls objects down" },
-    { term: "Atom", def: "Smallest unit of matter" },
-  ];
+  const fetchPairs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch("/api/games/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameType: "match-pairs",
+          subject: subject || "science",
+          classValue,
+          board,
+        }),
+      });
+      const data = await response.json();
+      const pairs = data?.data?.pairs;
+      if (!response.ok || !Array.isArray(pairs) || pairs.length === 0) {
+        throw new Error(data?.error || "Failed to load pairs");
+      }
+
+      const newCards: typeof cards = [];
+      pairs.forEach((pair: { term: string; definition: string }, i: number) => {
+        newCards.push({
+          id: `t${i}`,
+          content: pair.term,
+          type: "term",
+          pairId: i,
+          flipped: false,
+          matched: false,
+        });
+        newCards.push({
+          id: `d${i}`,
+          content: pair.definition,
+          type: "def",
+          pairId: i,
+          flipped: false,
+          matched: false,
+        });
+      });
+      setCards(newCards.sort(() => Math.random() - 0.5));
+      setMoves(0);
+      setFlipped([]);
+    } catch (err: any) {
+      setError(err.message || "Unable to load pairs.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const newCards: typeof cards = [];
-    pairs.forEach((pair, i) => {
-      newCards.push({ id: `t${i}`, content: pair.term, type: 'term', pairId: i, flipped: false, matched: false });
-      newCards.push({ id: `d${i}`, content: pair.def, type: 'def', pairId: i, flipped: false, matched: false });
-    });
-    setCards(newCards.sort(() => Math.random() - 0.5));
+    fetchPairs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFlip = (id: string) => {
@@ -476,7 +507,34 @@ function MatchPairs({ classValue, board, subject, onBack, onComplete, gameId }: 
     if (onComplete && gameId) {
       onComplete(gameId);
     }
-    return <GameOverScreen score={moves} onBack={onBack} onRestart={() => window.location.reload()} />;
+    return <GameOverScreen score={moves} onBack={onBack} onRestart={fetchPairs} />;
+  }
+
+  if (loading) {
+    return (
+      <GameContainer title="Match the Pairs" onBack={onBack} score={moves}>
+        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#5A4FFF] border-t-transparent mb-4" />
+          Generating new term-definition pairs...
+        </div>
+      </GameContainer>
+    );
+  }
+
+  if (error || cards.length === 0) {
+    return (
+      <GameContainer title="Match the Pairs" onBack={onBack} score={moves}>
+        <div className="text-center text-red-400">
+          <p className="mb-4">{error || "No pairs available."}</p>
+          <button
+            onClick={fetchPairs}
+            className="rounded-full bg-[#5A4FFF] px-6 py-2 text-sm font-semibold text-white"
+          >
+            Try Again
+          </button>
+        </div>
+      </GameContainer>
+    );
   }
 
   return (
@@ -506,26 +564,47 @@ function MatchPairs({ classValue, board, subject, onBack, onComplete, gameId }: 
   );
 }
 
+type WordSprintEntry = { word: string; synonym: string; options: string[] };
+
 // 5. Word Sprint
-function WordSprint({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
-  const [word, setWord] = useState("");
-  const [synonym, setSynonym] = useState("");
-  const [options, setOptions] = useState<string[]>([]);
+function WordSprint({ subject, onBack, onComplete, gameId }: GameProps) {
+  const [entries, setEntries] = useState<WordSprintEntry[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const wordData = [
-    { word: "Happy", synonym: "Joyful", options: ["Sad", "Joyful", "Angry", "Tired"] },
-    { word: "Big", synonym: "Large", options: ["Small", "Large", "Tiny", "Mini"] },
-    { word: "Fast", synonym: "Quick", options: ["Slow", "Quick", "Lazy", "Calm"] },
-  ];
+  const fetchEntries = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch("/api/games/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameType: "word-sprint",
+          subject: subject || "English vocabulary",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.data?.entries) {
+        throw new Error(data?.error || "Failed to load words");
+      }
+      setEntries(data.data.entries);
+      setCurrentIndex(0);
+      setScore(0);
+      setTimeLeft(30);
+    } catch (err: any) {
+      setError(err.message || "Unable to load words.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const data = wordData[Math.floor(Math.random() * wordData.length)];
-    setWord(data.word);
-    setSynonym(data.synonym);
-    setOptions(data.options.sort(() => Math.random() - 0.5));
-  }, [score]);
+    fetchEntries();
+  }, []);
 
   useEffect(() => {
     if (timeLeft <= 0) return;
@@ -534,28 +613,57 @@ function WordSprint({ classValue, board, subject, onBack, onComplete, gameId }: 
   }, [timeLeft]);
 
   const handleAnswer = (opt: string) => {
-    if (opt === synonym) {
+    if (!entries[currentIndex]) return;
+    if (opt === entries[currentIndex].synonym) {
       setScore(prev => prev + 1);
-      const data = wordData[Math.floor(Math.random() * wordData.length)];
-      setWord(data.word);
-      setSynonym(data.synonym);
-      setOptions(data.options.sort(() => Math.random() - 0.5));
+      setCurrentIndex(prev => (prev + 1) % entries.length);
     }
   };
 
-  if (timeLeft <= 0) {
+  if (timeLeft <= 0 && !loading) {
     if (onComplete && gameId) {
       onComplete(gameId);
     }
-    return <GameOverScreen score={score} onBack={onBack} onRestart={() => window.location.reload()} />;
+    return <GameOverScreen score={score} onBack={onBack} onRestart={fetchEntries} />;
   }
+
+  if (loading) {
+    return (
+      <GameContainer title="Word Sprint" onBack={onBack}>
+        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#5A4FFF] border-t-transparent mb-4" />
+          Summoning new words...
+        </div>
+      </GameContainer>
+    );
+  }
+
+  if (error || entries.length === 0) {
+    return (
+      <GameContainer title="Word Sprint" onBack={onBack}>
+        <div className="text-center text-red-400">
+          <p className="mb-4">{error || "No word data available."}</p>
+          <button
+            onClick={fetchEntries}
+            className="rounded-full bg-[#5A4FFF] px-6 py-2 text-sm font-semibold text-white"
+          >
+            Try Again
+          </button>
+        </div>
+      </GameContainer>
+    );
+  }
+
+  const current = entries[currentIndex];
 
   return (
     <GameContainer title="Word Sprint" onBack={onBack} score={score} timeLeft={timeLeft}>
       <div className="text-center">
-        <h2 className="text-3xl mb-4">Find synonym for: <span className="text-[#5A4FFF]">{word}</span></h2>
+        <h2 className="text-3xl mb-4">
+          Find synonym for: <span className="text-[#5A4FFF]">{current.word}</span>
+        </h2>
         <div className="grid grid-cols-2 gap-4">
-          {options.map((opt, i) => (
+          {current.options.map((opt, i) => (
             <button
               key={i}
               onClick={() => handleAnswer(opt)}
@@ -570,87 +678,47 @@ function WordSprint({ classValue, board, subject, onBack, onComplete, gameId }: 
   );
 }
 
-// 6. Reaction Puzzle
-function ReactionPuzzle({ classValue, board, subject, onBack }: GameProps) {
-  const [reactants, setReactants] = useState<string[]>([]);
-  const [product, setProduct] = useState("");
-  const [score, setScore] = useState(0);
-
-  const reactions = [
-    { reactants: ["H₂", "O"], product: "H₂O" },
-    { reactants: ["Na", "Cl"], product: "NaCl" },
-    { reactants: ["C", "O₂"], product: "CO₂" },
-  ];
-
-  useEffect(() => {
-    const reaction = reactions[Math.floor(Math.random() * reactions.length)];
-    setReactants(reaction.reactants);
-    setProduct(reaction.product);
-  }, [score]);
-
-  const handleDrop = (reactant: string) => {
-    // Simplified - in real game, would check if correct combination
-    setScore(prev => prev + 1);
-    const reaction = reactions[Math.floor(Math.random() * reactions.length)];
-    setReactants(reaction.reactants);
-    setProduct(reaction.product);
-  };
-
-  return (
-    <GameContainer title="Science Reaction Puzzle" onBack={onBack} score={score}>
-      <div className="text-center">
-        <h2 className="mb-6">Drag reactants to form: <span className="text-[#5A4FFF]">{product}</span></h2>
-        <div className="flex gap-4 justify-center mb-6">
-          {reactants.map((r, i) => (
-            <div
-              key={i}
-              draggable
-              onDragEnd={() => handleDrop(r)}
-              className="p-4 bg-[#5A4FFF]/30 rounded-lg cursor-move"
-            >
-              {r}
-            </div>
-          ))}
-        </div>
-        <div className="p-8 bg-slate-800/50 rounded-xl border-2 border-dashed border-slate-600">
-          Drop here
-        </div>
-      </div>
-    </GameContainer>
-  );
-}
+type SpeedRunQuestion = { question: string; options: string[]; correctIndex: number };
 
 // 7. MCQ Speed Run
-function MCQSpeedRun({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
+function MCQSpeedRun({ subject, onBack, onComplete, gameId }: GameProps) {
+  const [questions, setQuestions] = useState<SpeedRunQuestion[]>([]);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(60);
   const [currentQ, setCurrentQ] = useState(0);
-  const [usedQuestions, setUsedQuestions] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const questions = [
-    { q: "What is 5×5?", options: ["20", "25", "30", "35"], correct: 1 },
-    { q: "Capital of France?", options: ["London", "Berlin", "Paris", "Madrid"], correct: 2 },
-    { q: "H₂O stands for?", options: ["Water", "Oxygen", "Hydrogen", "Salt"], correct: 0 },
-    { q: "What is 10+15?", options: ["20", "25", "30", "35"], correct: 1 },
-    { q: "Largest planet?", options: ["Earth", "Jupiter", "Mars", "Venus"], correct: 1 },
-    { q: "Photosynthesis produces?", options: ["Oxygen", "Carbon", "Nitrogen", "Hydrogen"], correct: 0 },
-    { q: "What is 8×7?", options: ["54", "56", "58", "60"], correct: 1 },
-    { q: "Capital of India?", options: ["Mumbai", "Delhi", "Kolkata", "Chennai"], correct: 1 },
-    { q: "CO₂ stands for?", options: ["Carbon Dioxide", "Carbon Monoxide", "Calcium Oxide", "Copper Oxide"], correct: 0 },
-    { q: "What is 12÷3?", options: ["3", "4", "5", "6"], correct: 1 },
-    { q: "Smallest prime number?", options: ["0", "1", "2", "3"], correct: 2 },
-    { q: "Speed of light?", options: ["3×10⁸ m/s", "3×10⁶ m/s", "3×10¹⁰ m/s", "3×10⁴ m/s"], correct: 0 },
-  ];
-
-  const getNextQuestion = () => {
-    const available = questions.map((_, i) => i).filter(i => !usedQuestions.has(i));
-    if (available.length === 0) {
-      // Reset if all questions used
-      setUsedQuestions(new Set());
-      return Math.floor(Math.random() * questions.length);
+  const fetchQuestions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch("/api/games/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameType: "mcq-speedrun",
+          subject: subject || "general knowledge",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.data?.questions) {
+        throw new Error(data?.error || "Failed to load MCQs");
+      }
+      setQuestions(data.data.questions);
+      setCurrentQ(0);
+      setScore(0);
+      setTimeLeft(60);
+    } catch (err: any) {
+      setError(err.message || "Unable to load MCQs.");
+    } finally {
+      setLoading(false);
     }
-    return available[Math.floor(Math.random() * available.length)];
   };
+
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
 
   useEffect(() => {
     if (timeLeft <= 0) return;
@@ -659,27 +727,58 @@ function MCQSpeedRun({ classValue, board, subject, onBack, onComplete, gameId }:
   }, [timeLeft]);
 
   const handleAnswer = (idx: number) => {
-    if (idx === questions[currentQ].correct) {
+    if (!questions[currentQ]) return;
+    if (idx === questions[currentQ].correctIndex) {
       setScore(prev => prev + 1);
     }
-    const nextQ = getNextQuestion();
-    setUsedQuestions(prev => new Set([...prev, currentQ]));
-    setCurrentQ(nextQ);
+    setCurrentQ(prev => {
+      const next = (prev + 1) % questions.length;
+      return next;
+    });
   };
 
-  if (timeLeft <= 0) {
+  if (timeLeft <= 0 && !loading) {
     if (onComplete && gameId) {
       onComplete(gameId);
     }
-    return <GameOverScreen score={score} onBack={onBack} onRestart={() => window.location.reload()} />;
+    return <GameOverScreen score={score} onBack={onBack} onRestart={fetchQuestions} />;
   }
+
+  if (loading) {
+    return (
+      <GameContainer title="MCQ Speed Run" onBack={onBack}>
+        <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#5A4FFF] border-t-transparent mb-4" />
+          Creating rapid-fire MCQs...
+        </div>
+      </GameContainer>
+    );
+  }
+
+  if (error || questions.length === 0) {
+    return (
+      <GameContainer title="MCQ Speed Run" onBack={onBack}>
+        <div className="text-center text-red-400">
+          <p className="mb-4">{error || "No MCQs available."}</p>
+          <button
+            onClick={fetchQuestions}
+            className="rounded-full bg-[#5A4FFF] px-6 py-2 text-sm font-semibold text-white"
+          >
+            Try Again
+          </button>
+        </div>
+      </GameContainer>
+    );
+  }
+
+  const current = questions[currentQ];
 
   return (
     <GameContainer title="MCQ Speed Run" onBack={onBack} score={score} timeLeft={timeLeft}>
       <div className="text-center">
-        <h2 className="text-2xl mb-6">{questions[currentQ].q}</h2>
+        <h2 className="text-2xl mb-6">{current.question}</h2>
         <div className="grid grid-cols-2 gap-4">
-          {questions[currentQ].options.map((opt, i) => (
+          {current.options.map((opt, i) => (
             <button
               key={i}
               onClick={() => handleAnswer(i)}
@@ -778,49 +877,70 @@ function EquationBuilder({ classValue, board, subject, onBack }: GameProps) {
   );
 }
 
+type ConceptBlock = { concept: string; category: string };
+type ConceptPayload = { targetCategory: string; concepts: ConceptBlock[] };
+
 // 9. Concept Blocks
-function ConceptBlocks({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
+function ConceptBlocks({ subject, onBack, onComplete, gameId }: GameProps) {
   const [blocks, setBlocks] = useState<Array<{id: number; concept: string; y: number; x: number; category: string}>>([]);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [gameOver, setGameOver] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [conceptSource, setConceptSource] = useState<ConceptPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const concepts = {
-    "Biology": ["Cell", "Tissue", "Organ", "System"],
-    "Chemistry": ["Atom", "Molecule", "Compound", "Element"],
-    "Physics": ["Force", "Energy", "Power", "Work"],
-    "Math": ["Number", "Equation", "Formula", "Theorem"],
-  };
-
-  const getCategory = () => {
-    const subjectKey = Object.keys(concepts).find(k => 
-      subject.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(subject.toLowerCase())
-    ) || "Biology";
-    return subjectKey;
+  const fetchConcepts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch("/api/games/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameType: "concept-blocks",
+          subject: subject || "science",
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.data?.concepts) {
+        throw new Error(data?.error || "Failed to load concepts");
+      }
+      setConceptSource(data.data);
+      setSelectedCategory(data.data.targetCategory);
+    } catch (err: any) {
+      setError(err.message || "Unable to load concept data.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (!gameStarted || gameOver) return;
+    fetchConcepts();
+  }, []);
 
-    const interval = setInterval(() => {
-      const category = getCategory();
-      const conceptList = concepts[category as keyof typeof concepts] || concepts["Biology"];
-      const allCategories = Object.keys(concepts);
-      // Randomly assign category - 60% chance for correct category, 40% for others
-      const randomCategory = Math.random() < 0.6 
-        ? category 
-        : allCategories[Math.floor(Math.random() * allCategories.length)];
-      const randomConceptList = concepts[randomCategory as keyof typeof concepts] || concepts["Biology"];
-      
-      setBlocks(prev => [...prev, {
-        id: Date.now() + Math.random(),
-        concept: randomConceptList[Math.floor(Math.random() * randomConceptList.length)],
-        y: -5,
-        x: Math.floor(Math.random() * 4) * 25,
-        category: randomCategory,
-      }]);
+  useEffect(() => {
+    if (!gameStarted || gameOver || !conceptSource) return;
+
+    const spawnInterval = setInterval(() => {
+      const shouldUseTarget = Math.random() < 0.6;
+      const pool = conceptSource.concepts.filter(c =>
+        shouldUseTarget ? c.category === conceptSource.targetCategory : c.category !== conceptSource.targetCategory
+      );
+      const candidates = pool.length > 0 ? pool : conceptSource.concepts;
+      const concept = candidates[Math.floor(Math.random() * candidates.length)];
+      setBlocks(prev => [
+        ...prev,
+        {
+          id: Date.now() + Math.random(),
+          concept: concept.concept,
+          y: -5,
+          x: Math.floor(Math.random() * 4) * 25,
+          category: concept.category,
+        },
+      ]);
     }, 2000);
 
     const moveInterval = setInterval(() => {
@@ -833,7 +953,7 @@ function ConceptBlocks({ classValue, board, subject, onBack, onComplete, gameId 
             if (newLives <= 0) {
               setGameOver(true);
             }
-            return newLives;
+            return Math.max(newLives, 0);
           });
         }
         return updated.filter(b => b.y <= 100);
@@ -841,10 +961,10 @@ function ConceptBlocks({ classValue, board, subject, onBack, onComplete, gameId 
     }, 50);
 
     return () => {
-      clearInterval(interval);
+      clearInterval(spawnInterval);
       clearInterval(moveInterval);
     };
-  }, [gameStarted, gameOver, subject]);
+  }, [gameStarted, gameOver, conceptSource]);
 
   const handleBlockClick = (blockId: number, category: string) => {
     if (selectedCategory && selectedCategory === category) {
@@ -856,22 +976,52 @@ function ConceptBlocks({ classValue, board, subject, onBack, onComplete, gameId 
         if (newLives <= 0) {
           setGameOver(true);
         }
-        return newLives;
+        return Math.max(newLives, 0);
       });
     }
   };
 
   const startGame = () => {
+    if (!conceptSource) {
+      fetchConcepts();
+      return;
+    }
     setGameStarted(true);
     setGameOver(false);
     setScore(0);
     setLives(3);
     setBlocks([]);
-    const category = getCategory();
-    setSelectedCategory(category);
+    setSelectedCategory(conceptSource.targetCategory);
   };
 
   if (!gameStarted) {
+    if (loading) {
+      return (
+        <GameContainer title="Concept Puzzle Blocks" onBack={onBack}>
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#5A4FFF] border-t-transparent mb-4" />
+            Building concept stack...
+          </div>
+        </GameContainer>
+      );
+    }
+
+    if (error || !conceptSource) {
+      return (
+        <GameContainer title="Concept Puzzle Blocks" onBack={onBack}>
+          <div className="text-center text-red-400">
+            <p className="mb-4">{error || "No concept data available."}</p>
+            <button
+              onClick={fetchConcepts}
+              className="rounded-full bg-[#5A4FFF] px-6 py-2 text-sm font-semibold text-white"
+            >
+              Try Again
+            </button>
+          </div>
+        </GameContainer>
+      );
+    }
+
     return (
       <GameContainer title="Concept Puzzle Blocks" onBack={onBack}>
         <div className="text-center">
@@ -940,76 +1090,6 @@ function ConceptBlocks({ classValue, board, subject, onBack, onComplete, gameId 
 }
 
 // 10. Spelling Ninja
-function SpellingNinja({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
-  const [word, setWord] = useState("");
-  const [displayed, setDisplayed] = useState("");
-  const [wrongLetters, setWrongLetters] = useState<string[]>([]);
-  const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(60);
-
-  const words = ["EDUCATION", "KNOWLEDGE", "SCIENCE", "MATHEMATICS"];
-
-  useEffect(() => {
-    const w = words[Math.floor(Math.random() * words.length)];
-    setWord(w);
-    setDisplayed("");
-    setWrongLetters([]);
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < w.length) {
-        setDisplayed(prev => prev + w[index]);
-        index++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 500);
-    return () => clearInterval(interval);
-  }, [score]);
-
-  useEffect(() => {
-    if (timeLeft <= 0) return;
-    const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft]);
-
-  const handleLetterClick = (letter: string) => {
-    if (!word.includes(letter)) {
-      setWrongLetters(prev => [...prev, letter]);
-      setScore(prev => prev + 1);
-    }
-  };
-
-  if (timeLeft <= 0) {
-    if (onComplete && gameId) {
-      onComplete(gameId);
-    }
-    return <GameOverScreen score={score} onBack={onBack} onRestart={() => window.location.reload()} />;
-  }
-
-  return (
-    <GameContainer title="Spelling Ninja" onBack={onBack} score={score} timeLeft={timeLeft}>
-      <div className="text-center">
-        <h2 className="text-4xl mb-6 font-mono">{displayed}</h2>
-        <div className="grid grid-cols-6 gap-2">
-          {Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ").map(letter => (
-            <button
-              key={letter}
-              onClick={() => handleLetterClick(letter)}
-              className={`p-3 rounded-lg ${
-                wrongLetters.includes(letter)
-                  ? "bg-red-500/50"
-                  : "bg-slate-700/50 hover:bg-slate-600"
-              }`}
-            >
-              {letter}
-            </button>
-          ))}
-        </div>
-      </div>
-    </GameContainer>
-  );
-}
-
 // 11. Map Race
 function MapRace({ classValue, board, subject, onBack, onComplete, gameId }: GameProps) {
   const [targets, setTargets] = useState<Array<{id: number; name: string; x: number; y: number; clicked: boolean}>>([]);

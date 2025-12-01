@@ -17,6 +17,7 @@ type Stats = {
 
 type LeaderboardEntry = {
   user_id: string;
+  display_name?: string;
   total_points?: number;
   tests_completed?: number;
   quizzes_completed?: number;
@@ -93,7 +94,7 @@ export default function ProgressPage() {
           {/* Stats Overview */}
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-slate-100 mb-4">Your Progress</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="neo-card rounded-xl border border-slate-700/70 bg-slate-800/80 p-6">
                 <div className="text-slate-400 text-sm mb-2">Total XP</div>
                 <div className="text-3xl font-bold text-[#5A4FFF]">{stats?.total_xp || 0}</div>
@@ -108,11 +109,6 @@ export default function ProgressPage() {
                 <div className="text-slate-400 text-sm mb-2">Quizzes Completed</div>
                 <div className="text-3xl font-bold text-cyan-400">{stats?.quizzes_completed || 0}</div>
                 <div className="text-xs text-slate-500 mt-1">Total score: {stats?.total_quiz_score || 0}</div>
-              </div>
-              <div className="neo-card rounded-xl border border-slate-700/70 bg-slate-800/80 p-6">
-                <div className="text-slate-400 text-sm mb-2">Gaming Streak</div>
-                <div className="text-3xl font-bold text-orange-400">🔥 {stats?.current_streak || 0}</div>
-                <div className="text-xs text-slate-500 mt-1">Longest: {stats?.longest_streak || 0} days</div>
               </div>
             </div>
           </div>
@@ -171,7 +167,9 @@ export default function ProgressPage() {
                           </td>
                           <td className="px-6 py-4">
                             <div className="font-semibold text-slate-100">
-                              {isCurrentUser ? "You" : `User ${entry.user_id.slice(0, 8)}`}
+                              {isCurrentUser
+                                ? "You"
+                                : entry.display_name || `Student #${entry.rank}`}
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">

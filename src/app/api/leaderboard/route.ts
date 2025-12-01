@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import pool from "@/lib/db";
 
 export async function GET(request: NextRequest) {
@@ -99,8 +99,54 @@ export async function GET(request: NextRequest) {
       userRank = parseInt(userResult.rows[0]?.rank || "0");
     }
 
+    // Enrich leaderboard with Clerk user names
+    const userIds = result.rows.map((row: any) => row.user_id);
+
+    const uniqueUserIds = Array.from(new Set(userIds));
+
+    const usersById: Record<string, { displayName: string }> = {};
+    if (uniqueUserIds.length > 0) {
+      try {
+        const userPromises = uniqueUserIds.map(async (id) => {
+          try {
+            const user = await clerkClient.users.getUser(id);
+            const firstName = user.firstName || "";
+            const lastName = user.lastName || "";
+            const fullName = `${firstName} ${lastName}`.trim();
+
+            const primaryEmail =
+              (user.primaryEmailAddressId &&
+                user.emailAddresses?.find(
+                  (e) => e.id === user.primaryEmailAddressId
+                )?.emailAddress) ||
+              user.emailAddresses?.[0]?.emailAddress ||
+              user.username ||
+              undefined;
+
+            // Prefer real name, then primary email/username.
+            const displayName = fullName || primaryEmail || "";
+            usersById[id] = { displayName };
+          } catch {
+            // If a user lookup fails (e.g., user deleted), leave displayName empty
+            usersById[id] = { displayName: "" };
+          }
+        });
+
+        await Promise.all(userPromises);
+      } catch (e) {
+        console.error("Failed to enrich leaderboard with user names:", e);
+      }
+    }
+
+    const leaderboardWithNames = result.rows.map((row: any) => ({
+      ...row,
+      // Only send a display_name when we have a real name/email/username.
+      // Frontend will fall back to "Student #rank" otherwise.
+      display_name: usersById[row.user_id]?.displayName || undefined,
+    }));
+
     return NextResponse.json({
-      leaderboard: result.rows,
+      leaderboard: leaderboardWithNames,
       userRank,
       type,
     });

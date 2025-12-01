@@ -2,10 +2,44 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useUser, UserButton } from "@clerk/nextjs";
 
+type OnboardingStatus = {
+  onboarding_completed: boolean;
+  invoice_verified: boolean;
+  access_key_verified: boolean;
+  order_id: string | null;
+} | null;
+
 export default function Home() {
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn, user, isLoaded } = useUser();
+  const [onboardingStatus, setOnboardingStatus] = useState<OnboardingStatus>(null);
+  const [isOnboardingLoading, setIsOnboardingLoading] = useState(false);
+
+  // Fetch onboarding status only when logged in
+  useEffect(() => {
+    const fetchStatus = async () => {
+      if (!isLoaded || !isSignedIn) return;
+      try {
+        setIsOnboardingLoading(true);
+        const res = await fetch("/api/onboarding/status");
+        if (res.ok) {
+          const data = await res.json();
+          setOnboardingStatus(data);
+        }
+      } catch (e) {
+        console.error("Failed to fetch onboarding status on home:", e);
+      } finally {
+        setIsOnboardingLoading(false);
+      }
+    };
+
+    fetchStatus();
+  }, [isLoaded, isSignedIn]);
+
+  const isVerified =
+    !!onboardingStatus?.invoice_verified || !!onboardingStatus?.onboarding_completed;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -47,22 +81,7 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-3">
-            {isSignedIn ? (
-              <>
-                <div className="hidden items-center gap-2 md:flex">
-                  <span className="text-xs text-slate-400">
-                    Welcome, {user?.firstName || user?.emailAddresses[0]?.emailAddress}
-                  </span>
-                </div>
-                <UserButton 
-                  appearance={{
-                    elements: {
-                      avatarBox: "h-8 w-8",
-                    },
-                  }}
-                />
-              </>
-            ) : (
+            {!isSignedIn && (
               <>
                 <Link
                   href="/login"
@@ -74,8 +93,28 @@ export default function Home() {
                   href="/signup"
                   className="rounded-full bg-[#5A4FFF] px-4 py-1.5 text-xs font-semibold text-white shadow-lg shadow-indigo-400/40 hover:bg-[#4A3DF5] transition-colors"
                 >
-                  Start using
+                  Sign up
                 </Link>
+              </>
+            )}
+
+            {isSignedIn && (
+              <>
+                {isVerified && !isOnboardingLoading && (
+                  <Link
+                    href="/dashboard"
+                    className="hidden rounded-full border border-slate-700 bg-slate-800/70 px-4 py-1.5 text-xs font-semibold text-slate-200 shadow-sm backdrop-blur-sm hover:border-[#5A4FFF]/40 hover:text-[#5A4FFF] md:inline-flex transition-colors"
+                  >
+                    Go to dashboard
+                  </Link>
+                )}
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: "h-8 w-8",
+                    },
+                  }}
+                />
               </>
             )}
           </div>
@@ -110,27 +149,31 @@ export default function Home() {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                {isSignedIn ? (
+                {isSignedIn && isVerified ? (
                   <Link
                     href="/dashboard"
                     className="inline-flex items-center justify-center rounded-full bg-[#5A4FFF] px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-400/40 hover:bg-[#4A3DF5] transition-colors"
                   >
-                    Go to Dashboard
+                    Go to dashboard
                   </Link>
                 ) : (
                   <>
-                    <Link
-                      href="/signup"
+                    <a
+                      href="https://www.thekidcompany.in"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center justify-center rounded-full bg-[#5A4FFF] px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-400/40 hover:bg-[#4A3DF5] transition-colors"
                     >
-                      Use Studyatra for free
-                      <span className="ml-2 text-xs font-semibold text-indigo-100">
-                        No card needed
-                      </span>
-                    </Link>
-                    <button className="inline-flex items-center justify-center rounded-full border border-slate-700 bg-slate-800/70 px-5 py-2 text-xs font-semibold text-slate-200 shadow-sm backdrop-blur hover:border-[#00C2A8]/50 hover:text-[#00C2A8] transition-colors">
-                      Watch a 2-min demo
-                    </button>
+                      Get Studyatra for ₹300
+                    </a>
+                    {isSignedIn && !isVerified && (
+                      <Link
+                        href="/onboarding"
+                        className="inline-flex items-center justify-center rounded-full border border-slate-700 bg-slate-800/80 px-6 py-2 text-sm font-semibold text-slate-200 shadow-sm backdrop-blur hover:border-[#5A4FFF]/50 hover:text-[#5A4FFF] transition-colors"
+                      >
+                        Verify payment
+                      </Link>
+                    )}
                   </>
                 )}
               </div>
@@ -419,52 +462,31 @@ export default function Home() {
       >
         <div className="text-center">
           <h2 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">
-            Start free, upgrade when you&apos;re ready.
+            One simple plan. Forever.
           </h2>
           <p className="mt-2 text-sm text-slate-700 dark:text-slate-400 sm:text-[0.95rem]">
-            Use Studyatra free for the first 7 days. Continue with a simple
-            monthly plan that costs less than one offline tuition class.
+            Studyatra access is available as a paid product for ₹300. It is a one time purchase.
           </p>
         </div>
 
-        <div className="mt-8 grid gap-5 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-          {/* Free plan */}
-          <div className="neo-card-soft border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 p-5 shadow-sm dark:shadow-none">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400">
-              Free Trial
-            </p>
-            <p className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
-              ₹0 for 7 days
-            </p>
-            <p className="mt-1 text-xs text-slate-700 dark:text-slate-400">
-              Ideal to test Studyatra with your daily homework and upcoming
-              chapter.
-            </p>
-            <ul className="mt-4 space-y-2 text-xs text-slate-700 dark:text-slate-400">
-              <PricingItem text="Daily AI chat for doubts (fair usage)" />
-              <PricingItem text="AI-made notes for 3 chapters" />
-              <PricingItem text="Photo-based solutions (limited per day)" />
-              <PricingItem text="Basic quizzes &amp; one AI-generated test" />
-            </ul>
-          </div>
-
-          {/* Pro plan */}
-          <div className="neo-card relative border border-indigo-200 dark:border-indigo-900/50 bg-gradient-to-br from-[#5A4FFF]/8 via-white to-[#00C2A8]/6 dark:from-[#5A4FFF]/10 dark:via-slate-800 dark:to-[#00C2A8]/8 p-5 ring-1 ring-indigo-200/50 dark:ring-indigo-900/30 shadow-md dark:shadow-none">
+        <div className="mt-8 flex justify-center">
+          {/* Single paid plan, centered */}
+          <div className="w-full max-w-lg neo-card relative border border-indigo-200 dark:border-indigo-900/50 bg-gradient-to-br from-[#5A4FFF]/8 via-white to-[#00C2A8]/6 dark:from-[#5A4FFF]/10 dark:via-slate-800 dark:to-[#00C2A8]/8 p-5 ring-1 ring-indigo-200/50 dark:ring-indigo-900/30 shadow-md dark:shadow-none">
             <div className="absolute right-4 top-4 rounded-full bg-[#5A4FFF] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-indigo-50 shadow-md shadow-indigo-400/50">
               Recommended
             </div>
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400">
-              Studyatra Pro
+              Full access
             </p>
             <p className="mt-2 flex items-baseline gap-1 text-2xl font-extrabold text-slate-900 dark:text-slate-100">
-              ₹0 - Early Bird Launch Price
+              ₹300
               <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                per month
+                one-time
               </span>
             </p>
             <p className="mt-1 text-xs text-slate-700 dark:text-slate-400">
               All features unlocked for serious board prep, with progress
-              tracking and XP leaderboard.
+              tracking and XP leaderboard. No free trial.
             </p>
             <ul className="mt-4 space-y-2 text-xs text-slate-700 dark:text-slate-400">
               <PricingItem text="Unlimited AI chat with subject-wise personas" />
@@ -475,12 +497,33 @@ export default function Home() {
               <PricingItem text="XP, streaks, and weekly leaderboard access" />
               <PricingItem text="Chat history stored for revision anytime" />
             </ul>
-            <button className="mt-4 w-full rounded-full bg-[#5A4FFF] py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-400/40 hover:bg-[#4A3DF5]">
-                <a href="/signup">Continue after trial</a>
-            </button>
-            <p className="mt-5 text-[10px] text-slate-500">
-              Cancel anytime. Special launch pricing for early students. No card required.
-            </p>
+            {isSignedIn && isVerified ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="mt-4 w-full inline-flex items-center justify-center rounded-full bg-[#5A4FFF] py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-400/40 hover:bg-[#4A3DF5]"
+                >
+                  Go to dashboard
+                </Link>
+                <p className="mt-5 text-[10px] text-slate-500">
+                  Your account is already verified; you have full access to Studyatra.
+                </p>
+              </>
+            ) : (
+              <>
+                <a
+                  href="https://www.thekidcompany.in"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 w-full inline-flex items-center justify-center rounded-full bg-[#5A4FFF] py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-400/40 hover:bg-[#4A3DF5]"
+                >
+                  Buy now for ₹300
+                </a>
+                <p className="mt-5 text-[10px] text-slate-500">
+                  Payment and access are handled on The Kid Company&apos;s website. No free trial is available.
+                </p>
+              </>
+            )}
           </div>
         </div>
       </section>
