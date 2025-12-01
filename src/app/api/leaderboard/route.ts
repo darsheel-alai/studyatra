@@ -107,9 +107,12 @@ export async function GET(request: NextRequest) {
     const usersById: Record<string, { displayName: string }> = {};
     if (uniqueUserIds.length > 0) {
       try {
+        // Newer Clerk SDK exports clerkClient as an async factory.
+        const clerk = await clerkClient();
+
         const userPromises = uniqueUserIds.map(async (id) => {
           try {
-            const user = await clerkClient.users.getUser(id);
+            const user = await clerk.users.getUser(id);
             const firstName = user.firstName || "";
             const lastName = user.lastName || "";
             const fullName = `${firstName} ${lastName}`.trim();
