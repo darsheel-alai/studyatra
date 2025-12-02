@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGeminiModel } from "@/lib/gemini";
 
-// Use Gemini 2.5 Flash for all game generations
-const model = getGeminiModel("gemini-2.5-flash");
-
 type GameType = "quick-5" | "mcq-speedrun" | "concept-blocks" | "word-sprint" | "match-pairs";
 
 type BasePayload = {
@@ -20,6 +17,8 @@ const cleanJson = (text: string) => {
 };
 
 async function callGemini(prompt: string) {
+  // Use Gemini 2.5 Flash for all game generations
+  const model = getGeminiModel("gemini-2.5-flash");
   const result = await model.generateContent(prompt);
   const text = result.response.text();
   if (!text) {
