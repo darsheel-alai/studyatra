@@ -547,24 +547,24 @@ export default function Home() {
           <div className="flex flex-wrap items-center gap-4">
             <p>© {new Date().getFullYear()} Studyatra. All rights reserved.</p>
             <div className="flex gap-3">
-              <a
-                href="#"
+              <Link
+                href="/privacy"
                 className="hover:text-[#5A4FFF] dark:hover:text-indigo-400 transition-colors"
               >
                 Privacy
-              </a>
-              <a
-                href="#"
+              </Link>
+              <Link
+                href="/terms"
                 className="hover:text-[#5A4FFF] dark:hover:text-indigo-400 transition-colors"
               >
                 Terms
-              </a>
-              <a
-                href="#"
+              </Link>
+              <Link
+                href="/contact"
                 className="hover:text-[#5A4FFF] dark:hover:text-indigo-400 transition-colors"
               >
                 Contact
-              </a>
+              </Link>
             </div>
           </div>
         </div>

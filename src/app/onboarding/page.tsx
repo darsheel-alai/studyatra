@@ -347,8 +347,8 @@ export default function OnboardingPage() {
         {/* Footer note */}
         <p className="mt-6 text-center text-xs text-slate-500">
           Need help? Contact{" "}
-          <a href="mailto:support@studyatra.com" className="text-[#5A4FFF] hover:text-indigo-400 transition-colors">
-            support@studyatra.com
+          <a href="mailto:helpdesk@studyatra.in" className="text-[#5A4FFF] hover:text-indigo-400 transition-colors">
+            helpdesk@studyatra.in
           </a>
         </p>
       </div>
