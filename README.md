@@ -40,8 +40,5 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 The StudyArcade mini-games now source fresh content from Google Gemini. Set the following environment variable before running the app:
 
 ```bash
-# .env.local
-GEMINI_API_KEY=AIzaSyC1Y4S_BfH869GTxf4_-AF87bJk3UnWnXQ
-```
 
 If you want to rotate the key later, update `GEMINI_API_KEY` accordingly and restart the dev server.
